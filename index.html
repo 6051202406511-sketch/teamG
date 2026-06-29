@@ -40,8 +40,22 @@
             <strong id="goalDeadline">-</strong>
           </div>
         </div>
+        <div class="measurement-panel">
+          <div class="measurement-header">
+            <span>進捗バー</span>
+            <strong id="goalProgressBarLabel">0%</strong>
+          </div>
+          <div class="progress-track" aria-label="目標の進捗">
+            <div id="goalProgressBar" class="progress-fill"></div>
+          </div>
+          <div class="measurement-meta">
+            <span id="measurementStatusText">停止中</span>
+            <span id="goalElapsedText">0.00時間 / 0時間</span>
+          </div>
+        </div>
         <div class="goal-actions">
-          <button id="addProgressBtn" class="primary">+1時間</button>
+          <button id="startMeasureBtn" class="primary">計測開始</button>
+          <button id="addProgressBtn" class="secondary">+1時間</button>
           <button id="completeGoalBtn" class="secondary">達成にする</button>
           <button id="pauseGoalBtn" class="danger">一時停止</button>
         </div>
