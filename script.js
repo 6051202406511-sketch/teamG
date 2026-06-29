@@ -16,7 +16,8 @@ const measurementStatusText = document.getElementById('measurementStatusText');
 const goalElapsedText = document.getElementById('goalElapsedText');
 const goalForm = document.getElementById('goalForm');
 const goalName = document.getElementById('goalName');
-const goalHours = document.getElementById('goalHours');
+const goalAmount = document.getElementById('goalAmount');
+const goalUnit = document.getElementById('goalUnit');
 const goalDate = document.getElementById('goalDate');
 
 const STORAGE_KEY = 'teamG-goals';
@@ -25,16 +26,18 @@ const sampleGoals = [
   {
     id: crypto.randomUUID(),
     title: '120時間の学習',
-    target: 120,
-    progress: 38,
+    target: 432000,
+    progress: 136800,
+    targetUnit: 'hours',
     deadline: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     state: 'active',
   },
   {
     id: crypto.randomUUID(),
     title: '次の機能の設計',
-    target: 30,
+    target: 1800,
     progress: 0,
+    targetUnit: 'seconds',
     deadline: new Date(Date.now() + 17 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     state: 'active',
   },
@@ -52,20 +55,42 @@ function loadGoals() {
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
-      goals = JSON.parse(saved).map((goal) => ({
-        ...goal,
-        progress: Number(goal.progress || 0),
-        target: Number(goal.target || 0),
-        state: goal.state || 'active',
-        isRunning: Boolean(goal.isRunning),
-        startedAt: goal.startedAt || null,
-      }));
+      goals = JSON.parse(saved).map((goal) => {
+        const unit = goal.targetUnit || 'hours';
+        const targetSeconds = Number(goal.targetSeconds ?? (
+          unit === 'minutes' ? Number(goal.target || 0) * 60 : unit === 'seconds' ? Number(goal.target || 0) : Number(goal.target || 0) * 3600
+        ));
+        const progressSeconds = Number(goal.progressSeconds ?? (
+          unit === 'minutes' ? Number(goal.progress || 0) * 60 : unit === 'seconds' ? Number(goal.progress || 0) : Number(goal.progress || 0) * 3600
+        ));
+
+        return {
+          ...goal,
+          progress: progressSeconds,
+          target: targetSeconds,
+          progressSeconds,
+          targetSeconds,
+          targetUnit: unit,
+          state: goal.state || 'active',
+          isRunning: Boolean(goal.isRunning),
+          startedAt: goal.startedAt || null,
+        };
+      });
       return;
     } catch (error) {
       console.error('保存された目標の読み込みに失敗しました', error);
     }
   }
-  goals = sampleGoals.map((goal) => ({ ...goal, isRunning: false, startedAt: null }));
+  goals = sampleGoals.map((goal) => ({
+    ...goal,
+    targetSeconds: Number(goal.targetSeconds ?? goal.target),
+    progressSeconds: Number(goal.progressSeconds ?? goal.progress),
+    target: Number(goal.targetSeconds ?? goal.target),
+    progress: Number(goal.progressSeconds ?? goal.progress),
+    targetUnit: goal.targetUnit || 'hours',
+    isRunning: false,
+    startedAt: null,
+  }));
   saveGoals();
 }
 
@@ -75,7 +100,7 @@ function getNextGoal() {
     .sort((a, b) => {
       const dateA = new Date(a.deadline);
       const dateB = new Date(b.deadline);
-      return dateA - dateB || a.target - b.target;
+      return dateA - dateB || getTargetSeconds(a) - getTargetSeconds(b);
     })[0] || null;
 }
 
@@ -89,6 +114,16 @@ function formatDate(value) {
   });
 }
 
+function getTargetSeconds(goal) {
+  if (!goal) return 0;
+  return Number(goal.targetSeconds ?? goal.target ?? 0);
+}
+
+function getProgressSeconds(goal) {
+  if (!goal) return 0;
+  return Number(goal.progressSeconds ?? goal.progress ?? 0);
+}
+
 function formatDuration(totalSeconds) {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(safeSeconds / 3600);
@@ -97,25 +132,32 @@ function formatDuration(totalSeconds) {
   return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
 }
 
+function formatUnitValue(value, unit) {
+  const safeValue = Math.max(0, Math.floor(value));
+  if (unit === 'minutes') {
+    return `${safeValue}分`;
+  }
+  if (unit === 'seconds') {
+    return `${safeValue}秒`;
+  }
+  return `${safeValue}時間`;
+}
+
 function getElapsedSeconds(goal) {
   if (!goal || !goal.isRunning || !goal.startedAt) return 0;
   return Math.floor((Date.now() - goal.startedAt) / 1000);
 }
 
-function getElapsedHours(goal) {
-  return getElapsedSeconds(goal) / 3600;
-}
-
-function getDisplayProgress(goal) {
+function getDisplayProgressSeconds(goal) {
   if (!goal) return 0;
-  const base = Number(goal.progress || 0);
-  return Math.min(base + getElapsedHours(goal), goal.target || 0);
+  return Math.min(getProgressSeconds(goal) + getElapsedSeconds(goal), getTargetSeconds(goal));
 }
 
 function commitElapsed(goal) {
   if (!goal || !goal.isRunning || !goal.startedAt) return;
-  const elapsed = getElapsedHours(goal);
-  goal.progress = Number((goal.progress + elapsed).toFixed(6));
+  const elapsed = getElapsedSeconds(goal);
+  goal.progress = Number(getProgressSeconds(goal) + elapsed);
+  goal.progressSeconds = Number(getProgressSeconds(goal) + elapsed);
   goal.startedAt = Date.now();
 }
 
@@ -149,16 +191,16 @@ function renderCurrentGoal() {
     return;
   }
 
-  const progress = Math.min(getDisplayProgress(currentGoal), currentGoal.target);
-  const ratio = currentGoal.target > 0 ? Math.round((progress / currentGoal.target) * 100) : 0;
+  const progress = Math.min(getDisplayProgressSeconds(currentGoal), getTargetSeconds(currentGoal));
+  const ratio = getTargetSeconds(currentGoal) > 0 ? Math.round((progress / getTargetSeconds(currentGoal)) * 100) : 0;
   const status = getStatus(currentGoal);
-  const safeProgress = Number(progress.toFixed(6));
-  const progressSeconds = safeProgress * 3600;
-  const targetSeconds = Number(currentGoal.target || 0) * 3600;
+  const safeProgress = Number(progress.toFixed(0));
+  const targetSeconds = getTargetSeconds(currentGoal);
+  const targetUnit = currentGoal.targetUnit || 'hours';
 
   goalTitle.textContent = currentGoal.title;
-  goalTarget.textContent = `${currentGoal.target}時間`;
-  goalProgress.textContent = formatDuration(progressSeconds);
+  goalTarget.textContent = formatUnitValue(Math.max(1, Math.round(targetSeconds / (targetUnit === 'minutes' ? 60 : targetUnit === 'seconds' ? 1 : 3600))), targetUnit);
+  goalProgress.textContent = formatDuration(safeProgress);
   goalRate.textContent = `${ratio}%`;
   goalDeadline.textContent = formatDate(currentGoal.deadline);
   goalState.textContent = status.label;
@@ -166,8 +208,9 @@ function renderCurrentGoal() {
   goalProgressBar.style.width = `${Math.min(ratio, 100)}%`;
   goalProgressBarLabel.textContent = `${ratio}%`;
   measurementStatusText.textContent = currentGoal.isRunning ? '計測中' : currentGoal.state === 'paused' ? '一時停止' : '待機中';
-  goalElapsedText.textContent = `${formatDuration(progressSeconds)} / ${formatDuration(targetSeconds)}`;
+  goalElapsedText.textContent = `${formatDuration(safeProgress)} / ${formatDuration(targetSeconds)}`;
   addProgressBtn.disabled = false;
+  addProgressBtn.textContent = targetUnit === 'minutes' ? '+1分' : targetUnit === 'seconds' ? '+1秒' : '+1時間';
   completeGoalBtn.disabled = ratio >= 100;
   pauseGoalBtn.disabled = !currentGoal.isRunning || ratio >= 100;
   startMeasureBtn.disabled = !currentGoal || currentGoal.state === 'completed' || currentGoal.isRunning;
@@ -190,9 +233,12 @@ function renderUpcomingGoals() {
   upcoming.forEach((goal) => {
     const item = document.createElement('li');
     item.className = 'goal-item';
+    const unit = goal.targetUnit || 'hours';
+    const targetValue = Math.max(1, Math.round(getTargetSeconds(goal) / (unit === 'minutes' ? 60 : unit === 'seconds' ? 1 : 3600)));
+    const progressValue = Math.max(0, Math.round(getProgressSeconds(goal) / (unit === 'minutes' ? 60 : unit === 'seconds' ? 1 : 3600)));
     item.innerHTML = `
       <h4>${goal.title}</h4>
-      <p>期限: ${formatDate(goal.deadline)} / 進捗: ${goal.progress} / 目標: ${goal.target}時間</p>
+      <p>期限: ${formatDate(goal.deadline)} / 進捗: ${formatUnitValue(progressValue, unit)} / 目標: ${formatUnitValue(targetValue, unit)}</p>
     `;
     upcomingGoals.appendChild(item);
   });
@@ -221,9 +267,13 @@ function startTimer() {
 addProgressBtn.addEventListener('click', () => {
   if (!currentGoal) return;
   commitElapsed(currentGoal);
-  currentGoal.progress = Number((currentGoal.progress + 1).toFixed(2));
-  if (currentGoal.progress >= currentGoal.target) {
-    currentGoal.progress = Number(currentGoal.target);
+  const unit = currentGoal.targetUnit || 'hours';
+  const incrementSeconds = unit === 'minutes' ? 60 : unit === 'seconds' ? 1 : 3600;
+  currentGoal.progress = Number(getProgressSeconds(currentGoal) + incrementSeconds);
+  currentGoal.progressSeconds = Number(getProgressSeconds(currentGoal) + incrementSeconds);
+  if (getProgressSeconds(currentGoal) >= getTargetSeconds(currentGoal)) {
+    currentGoal.progress = Number(getTargetSeconds(currentGoal));
+    currentGoal.progressSeconds = Number(getTargetSeconds(currentGoal));
     currentGoal.state = 'completed';
     currentGoal.isRunning = false;
     currentGoal.startedAt = null;
@@ -234,7 +284,8 @@ addProgressBtn.addEventListener('click', () => {
 completeGoalBtn.addEventListener('click', () => {
   if (!currentGoal) return;
   commitElapsed(currentGoal);
-  currentGoal.progress = Number(currentGoal.target);
+  currentGoal.progress = Number(getTargetSeconds(currentGoal));
+  currentGoal.progressSeconds = Number(getTargetSeconds(currentGoal));
   currentGoal.state = 'completed';
   currentGoal.isRunning = false;
   currentGoal.startedAt = null;
@@ -263,18 +314,24 @@ goalForm.addEventListener('submit', (event) => {
   event.preventDefault();
 
   const title = goalName.value.trim();
-  const target = Number(goalHours.value);
+  const amount = Number(goalAmount.value);
+  const unit = goalUnit.value;
   const deadline = goalDate.value;
 
-  if (!title || target <= 0 || !deadline) {
+  if (!title || amount <= 0 || !deadline) {
     return;
   }
+
+  const targetSeconds = unit === 'minutes' ? amount * 60 : unit === 'seconds' ? amount : amount * 3600;
 
   const newGoal = {
     id: crypto.randomUUID(),
     title,
-    target,
+    target: targetSeconds,
     progress: 0,
+    targetSeconds,
+    progressSeconds: 0,
+    targetUnit: unit,
     deadline,
     state: 'active',
     isRunning: false,
@@ -283,7 +340,8 @@ goalForm.addEventListener('submit', (event) => {
 
   goals.push(newGoal);
   goalName.value = '';
-  goalHours.value = '120';
+  goalAmount.value = '120';
+  goalUnit.value = 'hours';
   goalDate.value = '';
   refresh();
 });
