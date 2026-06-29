@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>タイムトラッカー ダッシュボード</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">タイムトラッカー</p>
+        <h1>目標ダッシュボード</h1>
+        <p class="subtitle">設定した目標を大きく表示し、達成すると次の目標へ切り替わります。</p>
+      </div>
+    </header>
+
+    <section class="dashboard">
+      <article class="goal-card" id="currentGoalCard">
+        <div class="goal-header">
+          <span class="goal-badge" id="goalState">計測中</span>
+          <h2 id="goalTitle">目標を追加してください</h2>
+        </div>
+        <div class="goal-summary">
+          <div>
+            <span>目標</span>
+            <strong id="goalTarget">-</strong>
+          </div>
+          <div>
+            <span>進捗</span>
+            <strong id="goalProgress">-</strong>
+          </div>
+          <div>
+            <span>達成率</span>
+            <strong id="goalRate">-</strong>
+          </div>
+          <div>
+            <span>期限</span>
+            <strong id="goalDeadline">-</strong>
+          </div>
+        </div>
+        <div class="goal-actions">
+          <button id="addProgressBtn" class="primary">+1時間</button>
+          <button id="completeGoalBtn" class="secondary">達成にする</button>
+          <button id="pauseGoalBtn" class="danger">一時停止</button>
+        </div>
+      </article>
+
+      <aside class="goal-panel">
+        <section class="panel-block">
+          <h3>新しい目標を設定</h3>
+          <form id="goalForm">
+            <label>
+              目標名
+              <input type="text" id="goalName" placeholder="例: 120時間の学習" required />
+            </label>
+            <label>
+              目標時間 (時間)
+              <input type="number" id="goalHours" min="1" step="1" value="120" required />
+            </label>
+            <label>
+              期限
+              <input type="date" id="goalDate" required />
+            </label>
+            <button type="submit" class="primary">目標を追加</button>
+          </form>
+        </section>
+
+        <section class="panel-block">
+          <div class="panel-heading">
+            <h3>次の目標</h3>
+            <span id="upcomingCount">0</span>
+          </div>
+          <ul class="goal-list" id="upcomingGoals"></ul>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
