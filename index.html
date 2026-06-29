@@ -70,8 +70,15 @@
               <input type="text" id="goalName" placeholder="例: 120時間の学習" required />
             </label>
             <label>
-              目標時間 (時間)
-              <input type="number" id="goalHours" min="1" step="1" value="120" required />
+              目標時間
+              <div class="goal-time-inputs">
+                <input type="number" id="goalAmount" min="1" step="1" value="120" required />
+                <select id="goalUnit">
+                  <option value="hours">時間</option>
+                  <option value="minutes">分</option>
+                  <option value="seconds">秒</option>
+                </select>
+              </div>
             </label>
             <label>
               期限

@@ -263,7 +263,8 @@ label {
   color: var(--text);
 }
 
-label input {
+label input,
+label select {
   width: 100%;
   margin-top: 8px;
   padding: 12px 14px;
@@ -272,6 +273,20 @@ label input {
   background: #fffdf8;
   font-size: 0.95rem;
   color: var(--text);
+}
+
+.goal-time-inputs {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.goal-time-inputs input {
+  flex: 1;
+}
+
+.goal-time-inputs select {
+  flex: 0 0 110px;
 }
 
 @media (max-width: 960px) {
